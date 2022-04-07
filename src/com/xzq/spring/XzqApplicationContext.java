@@ -10,6 +10,7 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,9 +21,10 @@ public class XzqApplicationContext {
 
     //用来存储扫描到的bean
     private ConcurrentHashMap<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>();
-
     //单例池
     private ConcurrentHashMap<String, Object> singletonObjects = new ConcurrentHashMap<>();
+    //初始化前后，对bean的操作
+    private ArrayList<BeanPostProcessor> beanPostProcessorList = new ArrayList<>();
 
     public XzqApplicationContext(Class configClass) {
         this.configClass = configClass;
@@ -58,6 +60,11 @@ public class XzqApplicationContext {
                             //判断是否有bean注解
                             if (clazz.isAnnotationPresent(Component.class)) {
 
+                                if (BeanPostProcessor.class.isAssignableFrom(clazz)) {
+                                    BeanPostProcessor instance = (BeanPostProcessor) clazz.newInstance();
+                                    beanPostProcessorList.add(instance);
+                                }
+
                                 //获取bean的名字
                                 Component component = clazz.getAnnotation(Component.class);
                                 String beanName = component.value();
@@ -66,7 +73,6 @@ public class XzqApplicationContext {
                                     beanName = Introspector.decapitalize(clazz.getSimpleName());//beanName 首字母会小写，详情见该方法内容
                                 }
 
-                                //Bean
                                 //还要要判断 Bean 是单例，还是多例
                                 BeanDefinition beanDefinition = new BeanDefinition();
                                 beanDefinition.setType(clazz);
@@ -81,6 +87,10 @@ public class XzqApplicationContext {
 
                             }
                         } catch (ClassNotFoundException e) {
+                            e.printStackTrace();
+                        } catch (IllegalAccessException e) {
+                            e.printStackTrace();
+                        } catch (InstantiationException e) {
                             e.printStackTrace();
                         }
 
@@ -103,19 +113,19 @@ public class XzqApplicationContext {
 
     /**
      * 创建bean
-     * @param BeanName
+     * @param beanName
      * @param beanDefinition
      * @return
      */
-    private Object createBean(String BeanName, BeanDefinition beanDefinition){
+    private Object createBean(String beanName, BeanDefinition beanDefinition){
         Class clazz = beanDefinition.getType();
 
         try {
             Object instance = clazz.getConstructor().newInstance();
 
-            //实现依赖注入------>简单版
+            //*实现依赖注入------>简单版
             for (Field f : clazz.getDeclaredFields()) {
-                System.out.println(f.getType());
+//                System.out.println(f.getType());
                 //判断是否有 Autowired 注解
                 if (f.isAnnotationPresent(Autowired.class)) {
                     f.setAccessible(true);                  //使用反射需要修改为 true
@@ -123,7 +133,25 @@ public class XzqApplicationContext {
                 }
             }
 
-            //aware
+            //aware 回调
+            if (instance instanceof BeanNameAware){
+                ((BeanNameAware) instance).setBeanName(beanName);
+            }
+
+            //初始化前对bean的操作  BeanPostProcessor: bean的后置处理器
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                instance = beanPostProcessor.postProcessorBeforeInitialization(beanName, instance);
+            }
+
+            //初始化
+            if (instance instanceof InitializingBean){
+                ((InitializingBean) instance).afterPropertiesSet();
+            }
+
+            //初始化后对bean的操作
+            for (BeanPostProcessor beanPostProcessor : beanPostProcessorList) {
+                instance = beanPostProcessor.postProcessorAfterInitialization(beanName, instance);
+            }
 
 
             return instance;
