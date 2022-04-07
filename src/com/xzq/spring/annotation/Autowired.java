@@ -1,14 +1,14 @@
-package com.xzq.spring;
+package com.xzq.spring.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * 依赖注入
+ */
 @Retention(RetentionPolicy.RUNTIME) //注解生效的时间
-@Target(ElementType.TYPE)           //指定写类上面
-public @interface Scope {
-
-    //判断 Bean 是单例， 还是多例
-    String value() default "";
+@Target(ElementType.FIELD)          //指定写 字段 上面
+public @interface Autowired {
 }

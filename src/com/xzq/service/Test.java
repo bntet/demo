@@ -9,7 +9,8 @@ public class Test {
         XzqApplicationContext xzqApplicationContext = new XzqApplicationContext(AppConfig.class);
 
         UserService userService = (UserService) xzqApplicationContext.getBean("userService");
-
+        userService.test();
+//        System.out.println(xzqApplicationContext.getBean("userService"));
         System.out.println("this is spring demo");
     }
 }
